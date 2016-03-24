@@ -1,0 +1,109 @@
+<!Doctype html>
+<html>
+    <head>
+        <!-- AngularJS -->
+        <script src="js/angular.min.js"></script>
+
+        <!-- Firebase -->
+        <script src="js/firebase.js"></script>
+
+        <!-- AngularFire -->
+        <script src="js/angularfire.min.js"></script>
+        <script>
+            var app = angular.module("myApp", ["firebase"]);
+            app.controller("myCtrl", function($scope, $firebaseArray, $firebaseAuth) {
+                $scope.providers = null;
+                var ref = new Firebase("https://amber-inferno-2604.firebaseio.com/messages");
+                $scope.auth = null;
+                ref.onAuth(function(authData) {
+                    if (authData) {
+                        console.log("Authenticated with uid:", authData.uid);
+                        $scope.auth = authData;
+                        // create a synchronized array
+                        $scope.messages = $firebaseArray(ref);
+                        // add new items to the array
+                        // the message is automatically added to our Firebase database!
+                    } else {
+                        console.log("Client unauthenticated.")
+                    }
+                    $scope.$apply();
+                });
+                $scope.addMessage = function() {
+                    if($scope.providers == 'google')
+                    {
+                        $scope.messages.$add({
+                            text: $scope.newMessageText,
+                            sender: $scope.auth.google.displayName,
+                            uid:$scope.auth.uid
+                        });
+                    }
+                    else
+                    {
+                         $scope.messages.$add({
+                            text: $scope.newMessageText,
+                            sender: $scope.auth.facebook.displayName,
+                            uid:$scope.auth.uid
+                        });
+                    }
+
+                    $scope.newMessageText = "";
+                };
+                $scope.login =function() {
+                    $scope.providers = 'google';
+
+                    var provider = 'google';
+                    var scope = {scope:'email'};
+                    var auth = $firebaseAuth(ref);
+                    auth.$authWithOAuthPopup(provider, scope, function(error, authData){
+                        if (error) {
+                            // an error occurred while attempting login
+                            var message = 'An error occurred.';
+                            showAlert(message, function(){}, 'Failure!', 'Close');
+
+                        } else {
+                            // user authenticated with Firebase
+                            var message = 'User ID: ' + authData.uid + ', Provider: ' +                         authData.provider;
+                            showAlert(message, function(){}, 'Success!', 'Close');
+
+                        }
+                    });
+                };
+                //common logout for both google and facebook
+                $scope.logout = function(){
+                    $scope.auth = null;
+                    ref.unauth();
+                }
+                //added login function for facebook
+                 $scope.loginFacebook =function() {
+                     $scope.providers = 'facebook';
+                     var ref = new Firebase("https://amber-inferno-2604.firebaseio.com");
+                       ref.authWithOAuthPopup("facebook", function(error, authData) {
+                          if (error) {
+                            console.log("Login Failed!", error);
+                          } else {
+                            console.log("Authenticated successfully with payload:", authData);
+                          }
+                        });
+                 };
+                // click on `index.html` above to see $remove() and $save() in action
+            });
+        </script>
+    </head>
+    <body>
+        <div ng-app="myApp" ng-controller="myCtrl">
+            <form ng-hide="auth != null">
+                <p>This is a chat program that uses firebase as the back end. Click the login button to verify your user name with google and send messages.</p>
+                <button ng-hide="google!=null" type = "submit" ng-click="login()">Login</button>
+                <button ng-hide="facebook!=null" type = "submit" ng-click="loginFacebook()">Login Facebook</button>
+
+            </form>
+            <form ng-hide="auth==null">
+                <div ng-repeat="(n, message) in messages track by n">{{message.sender}}:{{message.text}}</div>
+                <p >Message : <input type="text" ng-model="newMessageText"></p>
+                <button type = "submit" ng-click="addMessage()">Send</button>
+                <button ng-click="logout()">Logout</button>
+                <a href="invite.html">Invite peple</a>
+            </form>
+        </div>
+        </body>
+</html>
